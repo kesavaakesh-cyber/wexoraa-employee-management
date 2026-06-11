@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
 const generateToken = (id, role) => {
-  return jwt.sign({ id, role }, 'worktrack_super_secret_key_2026', {
+  return jwt.sign({ id, role }, process.env.JWT_SECRET || 'worktrack_super_secret_key_2026', {
     expiresIn: '7d'
   });
 };
