@@ -56,7 +56,6 @@ const Tasks = () => {
     { label: 'Tasks', path: '/admin/tasks' },
     { label: 'Reports', path: '/admin/reports' },
     { label: 'Analytics', path: '/admin/analytics' },
-    { label: 'Analytics', path: '/admin/analytics' },
   ];
 
   return (
