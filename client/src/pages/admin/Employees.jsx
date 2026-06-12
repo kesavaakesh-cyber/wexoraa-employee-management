@@ -55,14 +55,14 @@ const Employees = () => {
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8f9fa' }}>
       <div style={{ width: '220px', background: 'white', borderRight: '1px solid #eee', padding: '1rem 0', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '0 1rem 1rem', borderBottom: '1px solid #eee', marginBottom: '0.5rem' }}>
-          <p style={{ fontWeight: '600', margin: 0, fontSize: '16px' }}>Wexoraa infotech</p>
+          <img src="/src/assets/logo.png" alt="Wexoraa" style={{ height: '32px', objectFit: 'contain' }} />
           <p style={{ fontSize: '11px', color: '#888', margin: 0 }}>Admin Panel</p>
         </div>
         {sidebarItems.map((item) => (
           <div key={item.path} onClick={() => navigate(item.path)} style={{
             padding: '10px 1rem', cursor: 'pointer', fontSize: '14px',
-            background: window.location.pathname === item.path ? '#eff6ff' : 'transparent',
-            color: window.location.pathname === item.path ? '#2563eb' : '#444',
+            background: window.location.pathname === item.path ? '#f0fdf4' : 'transparent',
+            color: window.location.pathname === item.path ? '#16a34a' : '#444',
             fontWeight: window.location.pathname === item.path ? '500' : 'normal'
           }}>{item.label}</div>
         ))}
@@ -76,7 +76,7 @@ const Employees = () => {
       <div style={{ flex: 1, padding: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <p style={{ fontSize: '20px', fontWeight: '600', margin: 0 }}>Employees</p>
-          <button onClick={() => setShowModal(true)} style={{ padding: '8px 16px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}>+ Add Employee</button>
+          <button onClick={() => setShowModal(true)} style={{ padding: '8px 16px', background: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}>+ Add Employee</button>
         </div>
 
         {message && <div style={{ padding: '10px', background: '#dcfce7', border: '1px solid #86efac', borderRadius: '8px', marginBottom: '1rem', fontSize: '13px', color: '#16a34a' }}>{message}</div>}
@@ -133,7 +133,7 @@ const Employees = () => {
               </div>
             ))}
             <div style={{ display: 'flex', gap: '8px', marginTop: '1.25rem' }}>
-              <button onClick={handleAdd} style={{ flex: 1, padding: '9px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}>Add</button>
+              <button onClick={handleAdd} style={{ flex: 1, padding: '9px', background: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}>Add</button>
               <button onClick={() => setShowModal(false)} style={{ flex: 1, padding: '9px', background: '#f5f5f5', border: '1px solid #ddd', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}>Cancel</button>
             </div>
           </div>

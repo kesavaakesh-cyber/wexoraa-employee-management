@@ -27,6 +27,7 @@ const EmployeeDashboard = () => {
       setBreakSeconds(data.breakSeconds);
       setStartTime(data.startTime);
       setBreaks(data.breaks || []);
+      if (data.status === 'ended') setWorkSaved(true);
     }
   }, []);
 
@@ -89,6 +90,7 @@ const EmployeeDashboard = () => {
     setBreakSeconds(0);
     setBreaks([]);
     setWorkSaved(false);
+    localStorage.removeItem('workTimer');
   };
 
   const handleBreak = () => {
@@ -111,6 +113,16 @@ const EmployeeDashboard = () => {
     const now = new Date().toTimeString().split(' ')[0];
     const totalWorkSecs = seconds - breakSeconds;
 
+    // localStorage clear pannama - Report page use pannatum
+    localStorage.setItem('workTimer', JSON.stringify({
+      status: 'ended',
+      seconds: seconds,
+      breakSeconds: breakSeconds,
+      startTime: startTime,
+      endTime: now,
+      breaks: breaks
+    }));
+
     try {
       await API.post('/attendance/save-timer', {
         checkIn: startTime,
@@ -123,7 +135,6 @@ const EmployeeDashboard = () => {
       console.log('Save timer error:', err);
     }
 
-    localStorage.removeItem('workTimer');
     setWorkSaved(true);
   };
 
@@ -147,14 +158,14 @@ const EmployeeDashboard = () => {
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8f9fa' }}>
       <div style={{ width: '220px', background: 'white', borderRight: '1px solid #eee', padding: '1rem 0', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '0 1rem 1rem', borderBottom: '1px solid #eee', marginBottom: '0.5rem' }}>
-          <p style={{ fontWeight: '600', margin: 0, fontSize: '16px' }}>Wexoraa infotech</p>
+          <img src="/src/assets/logo.png" alt="Wexoraa" style={{ height: '32px', objectFit: 'contain' }} />
           <p style={{ fontSize: '11px', color: '#888', margin: 0 }}>Employee</p>
         </div>
         {sidebarItems.map((item) => (
           <div key={item.path} onClick={() => navigate(item.path)} style={{
             padding: '10px 1rem', cursor: 'pointer', fontSize: '14px',
-            background: window.location.pathname === item.path ? '#eff6ff' : 'transparent',
-            color: window.location.pathname === item.path ? '#2563eb' : '#444',
+            background: window.location.pathname === item.path ? '#f0fdf4' : 'transparent',
+            color: window.location.pathname === item.path ? '#16a34a' : '#444',
             fontWeight: window.location.pathname === item.path ? '500' : 'normal'
           }}>{item.label}</div>
         ))}
@@ -186,15 +197,15 @@ const EmployeeDashboard = () => {
                 {timerStatus === 'idle' && 'Not started'}
                 {timerStatus === 'working' && `Working • Started ${startTime}`}
                 {timerStatus === 'break' && `On break • Break time: ${formatTime(breakSeconds)}`}
-                {timerStatus === 'ended' && 'Work ended'}
+                {timerStatus === 'ended' && `Work ended • Started ${startTime}`}
               </p>
             </div>
 
             {timerStatus !== 'idle' && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '1rem' }}>
                 <div style={{ background: '#eff6ff', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
-                  <p style={{ fontSize: '11px', color: '#2563eb', margin: '0 0 2px' }}>Work Time</p>
-                  <p style={{ fontSize: '14px', fontWeight: '600', color: '#2563eb', margin: 0, fontFamily: 'monospace' }}>{formatTime(totalWorkSecs > 0 ? totalWorkSecs : 0)}</p>
+                  <p style={{ fontSize: '11px', color: '#16a34a', margin: '0 0 2px' }}>Work Time</p>
+                  <p style={{ fontSize: '14px', fontWeight: '600', color: '#16a34a', margin: 0, fontFamily: 'monospace' }}>{formatTime(totalWorkSecs > 0 ? totalWorkSecs : 0)}</p>
                 </div>
                 <div style={{ background: '#fef9c3', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
                   <p style={{ fontSize: '11px', color: '#ca8a04', margin: '0 0 2px' }}>Break Time</p>
@@ -205,7 +216,7 @@ const EmployeeDashboard = () => {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {timerStatus === 'idle' && (
-                <button onClick={handleStartWork} style={{ width: '100%', padding: '10px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
+                <button onClick={handleStartWork} style={{ width: '100%', padding: '10px', background: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
                   ▶ Start Work
                 </button>
               )}
@@ -225,9 +236,14 @@ const EmployeeDashboard = () => {
                 </button>
               )}
               {timerStatus === 'ended' && (
-                <div style={{ padding: '10px', background: '#dcfce7', borderRadius: '8px', textAlign: 'center' }}>
-                  <p style={{ fontSize: '13px', color: '#16a34a', margin: 0, fontWeight: '500' }}>✓ Work completed!</p>
-                  <p style={{ fontSize: '12px', color: '#16a34a', margin: '4px 0 0' }}>Work: {formatTime(totalWorkSecs > 0 ? totalWorkSecs : 0)} | Break: {formatTime(breakSeconds)}</p>
+                <div>
+                  <div style={{ padding: '10px', background: '#dcfce7', borderRadius: '8px', textAlign: 'center', marginBottom: '8px' }}>
+                    <p style={{ fontSize: '13px', color: '#16a34a', margin: 0, fontWeight: '500' }}>✓ Work completed!</p>
+                    <p style={{ fontSize: '12px', color: '#16a34a', margin: '4px 0 0' }}>Work: {formatTime(totalWorkSecs > 0 ? totalWorkSecs : 0)} | Break: {formatTime(breakSeconds)}</p>
+                  </div>
+                  <button onClick={() => navigate('/employee/report')} style={{ width: '100%', padding: '9px', background: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>
+                    📝 Submit Daily Report
+                  </button>
                 </div>
               )}
             </div>
@@ -247,7 +263,7 @@ const EmployeeDashboard = () => {
           <div style={{ background: 'white', borderRadius: '10px', border: '1px solid #eee', padding: '1.25rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <p style={{ fontWeight: '500', margin: 0, fontSize: '15px' }}>My Tasks</p>
-              <span onClick={() => navigate('/employee/tasks')} style={{ fontSize: '12px', color: '#2563eb', cursor: 'pointer' }}>View all</span>
+              <span onClick={() => navigate('/employee/tasks')} style={{ fontSize: '12px', color: '#16a34a', cursor: 'pointer' }}>View all</span>
             </div>
             {tasks.length === 0 ? (
               <p style={{ color: '#888', fontSize: '13px' }}>No tasks assigned yet</p>
@@ -270,8 +286,8 @@ const EmployeeDashboard = () => {
         <div style={{ background: 'white', borderRadius: '10px', border: '1px solid #eee', padding: '1.25rem' }}>
           <p style={{ fontWeight: '500', margin: '0 0 1rem', fontSize: '15px' }}>Quick Actions</p>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button onClick={() => navigate('/employee/report')} style={{ padding: '10px 20px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}>Submit Daily Report</button>
-            <button onClick={() => navigate('/employee/tasks')} style={{ padding: '10px 20px', background: 'white', color: '#2563eb', border: '1px solid #2563eb', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}>View My Tasks</button>
+            <button onClick={() => navigate('/employee/report')} style={{ padding: '10px 20px', background: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}>Submit Daily Report</button>
+            <button onClick={() => navigate('/employee/tasks')} style={{ padding: '10px 20px', background: 'white', color: '#16a34a', border: '1px solid #16a34a', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}>View My Tasks</button>
           </div>
         </div>
       </div>

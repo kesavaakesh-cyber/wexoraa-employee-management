@@ -16,10 +16,11 @@ const DailyReport = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [autoFilled, setAutoFilled] = useState(false);
+  const [timerSummary, setTimerSummary] = useState(null);
 
   useEffect(() => {
-    // Timer la irunthu auto fill pannuvom
     const saved = localStorage.getItem('workTimer');
+    console.log('Timer data from localStorage:', saved);
     if (saved) {
       const data = JSON.parse(saved);
       if (data.seconds > 0) {
@@ -27,9 +28,23 @@ const DailyReport = () => {
         const hours = (workSecs / 3600).toFixed(1);
         setForm(prev => ({ ...prev, hoursWorked: hours }));
         setAutoFilled(true);
+        setTimerSummary({
+          startTime: data.startTime,
+          endTime: data.endTime,
+          workSeconds: workSecs,
+          breakSeconds: data.breakSeconds || 0,
+          breakCount: (data.breaks || []).length
+        });
       }
     }
   }, []);
+
+  const formatTime = (secs) => {
+    if (!secs) return '0h 0m';
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    return `${h}h ${m}m`;
+  };
 
   const handleSubmit = async () => {
     if (!form.tasksCompleted || !form.hoursWorked) {
@@ -41,7 +56,10 @@ const DailyReport = () => {
     try {
       await API.post('/reports/submit', form);
       setSuccess(true);
+      localStorage.removeItem('workTimer');
       setForm({ tasksCompleted: '', hoursWorked: '', blockers: '', tomorrowPlan: '' });
+      setTimerSummary(null);
+      setAutoFilled(false);
     } catch (err) {
       setError(err.response?.data?.message || 'Error submitting report');
     } finally { setLoading(false); }
@@ -59,14 +77,14 @@ const DailyReport = () => {
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8f9fa' }}>
       <div style={{ width: '220px', background: 'white', borderRight: '1px solid #eee', padding: '1rem 0', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '0 1rem 1rem', borderBottom: '1px solid #eee', marginBottom: '0.5rem' }}>
-          <p style={{ fontWeight: '600', margin: 0, fontSize: '16px' }}>Wexoraa infotech</p>
+          <img src="/src/assets/logo.png" alt="Wexoraa" style={{ height: '32px', objectFit: 'contain' }} />
           <p style={{ fontSize: '11px', color: '#888', margin: 0 }}>Employee</p>
         </div>
         {sidebarItems.map((item) => (
           <div key={item.path} onClick={() => navigate(item.path)} style={{
             padding: '10px 1rem', cursor: 'pointer', fontSize: '14px',
-            background: window.location.pathname === item.path ? '#eff6ff' : 'transparent',
-            color: window.location.pathname === item.path ? '#2563eb' : '#444',
+            background: window.location.pathname === item.path ? '#f0fdf4' : 'transparent',
+            color: window.location.pathname === item.path ? '#16a34a' : '#444',
             fontWeight: window.location.pathname === item.path ? '500' : 'normal'
           }}>{item.label}</div>
         ))}
@@ -83,9 +101,28 @@ const DailyReport = () => {
           <p style={{ fontSize: '13px', color: '#888', margin: 0 }}>{new Date().toDateString()}</p>
         </div>
 
-        {autoFilled && (
-          <div style={{ padding: '10px 16px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', marginBottom: '1rem', fontSize: '13px', color: '#2563eb' }}>
-            ⏱ Hours auto-filled from your work timer!
+        {/* Timer Summary */}
+        {timerSummary && (
+          <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
+            <p style={{ fontSize: '13px', fontWeight: '500', color: '#16a34a', margin: '0 0 8px' }}>⏱ Today's Work Summary (Auto-filled)</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ fontSize: '11px', color: '#888', margin: '0 0 2px' }}>Start Time</p>
+                <p style={{ fontSize: '13px', fontWeight: '500', margin: 0 }}>{timerSummary.startTime}</p>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ fontSize: '11px', color: '#888', margin: '0 0 2px' }}>End Time</p>
+                <p style={{ fontSize: '13px', fontWeight: '500', margin: 0 }}>{timerSummary.endTime}</p>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ fontSize: '11px', color: '#888', margin: '0 0 2px' }}>Work Time</p>
+                <p style={{ fontSize: '13px', fontWeight: '500', color: '#16a34a', margin: 0 }}>{formatTime(timerSummary.workSeconds)}</p>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ fontSize: '11px', color: '#888', margin: '0 0 2px' }}>Break Time</p>
+                <p style={{ fontSize: '13px', fontWeight: '500', color: '#ca8a04', margin: 0 }}>{formatTime(timerSummary.breakSeconds)} ({timerSummary.breakCount} breaks)</p>
+              </div>
+            </div>
           </div>
         )}
 
@@ -111,9 +148,10 @@ const DailyReport = () => {
 
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px', color: '#555' }}>
-              Hours Worked * {autoFilled && <span style={{ color: '#2563eb', fontWeight: '400' }}>(auto-filled from timer)</span>}
+              Hours Worked * {autoFilled && <span style={{ color: '#16a34a', fontWeight: '400', fontSize: '12px' }}>(auto-filled from timer)</span>}
             </label>
-            <input type="number" min="0" max="24" step="0.1" value={form.hoursWorked} onChange={(e) => setForm({ ...form, hoursWorked: e.target.value })}
+            <input type="number" min="0" max="24" step="0.1" value={form.hoursWorked}
+              onChange={(e) => setForm({ ...form, hoursWorked: e.target.value })}
               placeholder="8"
               style={{ width: '120px', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }} />
           </div>

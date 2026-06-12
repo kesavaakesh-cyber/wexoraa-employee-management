@@ -53,7 +53,7 @@ const Dashboard = () => {
         padding: '1rem 0', display: 'flex', flexDirection: 'column'
       }}>
         <div style={{ padding: '0 1rem 1rem', borderBottom: '1px solid #eee', marginBottom: '0.5rem' }}>
-          <p style={{ fontWeight: '600', margin: 0, fontSize: '16px' }}>Wexoraa infotech</p>
+          <img src="/src/assets/logo.png" alt="Wexoraa" style={{ height: '32px', objectFit: 'contain' }} />
           <p style={{ fontSize: '11px', color: '#888', margin: 0 }}>Admin Panel</p>
         </div>
         {[
@@ -98,7 +98,7 @@ const Dashboard = () => {
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '1.5rem' }}>
           {[
-            { label: 'Total Employees', value: stats.totalEmployees, color: '#2563eb' },
+            { label: 'Total Employees', value: stats.totalEmployees, color: '#16a34a' },
             { label: 'Present Today', value: stats.presentToday, color: '#16a34a' },
             { label: 'Active Tasks', value: stats.totalTasks, color: '#d97706' },
             { label: 'Reports Today', value: stats.reportsToday, color: '#7c3aed' },

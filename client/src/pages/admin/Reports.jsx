@@ -33,14 +33,14 @@ const Reports = () => {
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8f9fa' }}>
       <div style={{ width: '220px', background: 'white', borderRight: '1px solid #eee', padding: '1rem 0', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '0 1rem 1rem', borderBottom: '1px solid #eee', marginBottom: '0.5rem' }}>
-          <p style={{ fontWeight: '600', margin: 0, fontSize: '16px' }}>Wexoraa infotech</p>
+          <img src="/src/assets/logo.png" alt="Wexoraa" style={{ height: '32px', objectFit: 'contain' }} />
           <p style={{ fontSize: '11px', color: '#888', margin: 0 }}>Admin Panel</p>
         </div>
         {sidebarItems.map((item) => (
           <div key={item.path} onClick={() => navigate(item.path)} style={{
             padding: '10px 1rem', cursor: 'pointer', fontSize: '14px',
-            background: window.location.pathname === item.path ? '#eff6ff' : 'transparent',
-            color: window.location.pathname === item.path ? '#2563eb' : '#444',
+            background: window.location.pathname === item.path ? '#f0fdf4' : 'transparent',
+            color: window.location.pathname === item.path ? '#16a34a' : '#444',
             fontWeight: window.location.pathname === item.path ? '500' : 'normal'
           }}>{item.label}</div>
         ))}
@@ -71,7 +71,7 @@ const Reports = () => {
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                   <p style={{ fontWeight: '500', margin: 0, fontSize: '14px' }}>{r.employee?.name}</p>
-                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '20px', background: '#eff6ff', color: '#2563eb' }}>{r.date}</span>
+                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '20px', background: '#eff6ff', color: '#16a34a' }}>{r.date}</span>
                 </div>
                 <p style={{ fontSize: '12px', color: '#555', margin: '0 0 4px' }}>
                   <strong>Hours:</strong> {r.hoursWorked}h
