@@ -9,6 +9,7 @@ import Reports from './pages/admin/Reports';
 import EmployeeDashboard from './pages/employee/Dashboard';
 import MyTasks from './pages/employee/Tasks';
 import DailyReport from './pages/employee/Report';
+import Analytics from './pages/admin/Analytics';
 
 const PrivateRoute = ({ children, role }) => {
   const { user, loading } = useAuth();
@@ -51,6 +52,9 @@ const App = () => {
 } />
 <Route path="/employee/report" element={
   <PrivateRoute role="employee"><DailyReport /></PrivateRoute>
+} />
+<Route path="/admin/analytics" element={
+  <PrivateRoute role="admin"><Analytics /></PrivateRoute>
 } />
         </Routes>
       </BrowserRouter>

@@ -31,6 +31,14 @@ const Tasks = () => {
     } catch (err) { console.log(err); }
   };
 
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this task?')) return;
+    try {
+      await API.delete(`/tasks/${id}`);
+      fetchData();
+    } catch (err) { console.log(err); }
+  };
+
   const handleLogout = () => { logout(); navigate('/login'); };
 
   const filtered = filter === 'all' ? tasks : tasks.filter(t => t.status === filter);
@@ -47,6 +55,7 @@ const Tasks = () => {
     { label: 'Attendance', path: '/admin/attendance' },
     { label: 'Tasks', path: '/admin/tasks' },
     { label: 'Reports', path: '/admin/reports' },
+    { label: 'Analytics', path: '/admin/analytics' },
   ];
 
   return (
@@ -97,11 +106,12 @@ const Tasks = () => {
                 <th style={{ textAlign: 'left', padding: '12px 1rem', fontWeight: '500', color: '#555' }}>Due Date</th>
                 <th style={{ textAlign: 'left', padding: '12px 1rem', fontWeight: '500', color: '#555' }}>Priority</th>
                 <th style={{ textAlign: 'left', padding: '12px 1rem', fontWeight: '500', color: '#555' }}>Status</th>
+                <th style={{ textAlign: 'left', padding: '12px 1rem', fontWeight: '500', color: '#555' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan="5" style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>No tasks yet</td></tr>
+                <tr><td colSpan="6" style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>No tasks yet</td></tr>
               ) : (
                 filtered.map((task) => (
                   <tr key={task._id} style={{ borderBottom: '1px solid #f5f5f5' }}>
@@ -122,6 +132,9 @@ const Tasks = () => {
                       <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '20px', background: statusColor(task.status).bg, color: statusColor(task.status).color }}>
                         {task.status === 'inprogress' ? 'In Progress' : task.status}
                       </span>
+                    </td>
+                    <td style={{ padding: '12px 1rem' }}>
+                      <button onClick={() => handleDelete(task._id)} style={{ padding: '4px 10px', background: '#fff0f0', border: '1px solid #ffcccc', borderRadius: '6px', color: '#cc0000', cursor: 'pointer', fontSize: '12px' }}>Delete</button>
                     </td>
                   </tr>
                 ))
