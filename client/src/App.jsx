@@ -6,10 +6,10 @@ import Employees from './pages/admin/Employees';
 import Tasks from './pages/admin/Tasks';
 import Attendance from './pages/admin/Attendance';
 import Reports from './pages/admin/Reports';
+import Analytics from './pages/admin/Analytics';
 import EmployeeDashboard from './pages/employee/Dashboard';
 import MyTasks from './pages/employee/Tasks';
 import DailyReport from './pages/employee/Report';
-import Analytics from './pages/admin/Analytics';
 
 const PrivateRoute = ({ children, role }) => {
   const { user, loading } = useAuth();
@@ -31,31 +31,28 @@ const App = () => {
           <Route path="/admin/employees" element={
             <PrivateRoute role="admin"><Employees /></PrivateRoute>
           } />
-          <Route path="/" element={<Navigate to="/login" />} />
+          <Route path="/admin/attendance" element={
+            <PrivateRoute role="admin"><Attendance /></PrivateRoute>
+          } />
           <Route path="/admin/tasks" element={
-  <PrivateRoute role="admin"><Tasks /></PrivateRoute>
-} />
-<Route path="/admin/attendance" element={
-  <PrivateRoute role="admin"><Attendance /></PrivateRoute>
-} />
-<Route path="/admin/reports" element={
-  <PrivateRoute role="admin"><Reports /></PrivateRoute>
-} />
-<Route path="/employee/dashboard" element={
-  <PrivateRoute role="employee"><EmployeeDashboard /></PrivateRoute>
-} />
-<Route path="/employee/dashboard" element={
-  <PrivateRoute role="employee"><EmployeeDashboard /></PrivateRoute>
-} />
-<Route path="/employee/tasks" element={
-  <PrivateRoute role="employee"><MyTasks /></PrivateRoute>
-} />
-<Route path="/employee/report" element={
-  <PrivateRoute role="employee"><DailyReport /></PrivateRoute>
-} />
-<Route path="/admin/analytics" element={
-  <PrivateRoute role="admin"><Analytics /></PrivateRoute>
-} />
+            <PrivateRoute role="admin"><Tasks /></PrivateRoute>
+          } />
+          <Route path="/admin/reports" element={
+            <PrivateRoute role="admin"><Reports /></PrivateRoute>
+          } />
+          <Route path="/admin/analytics" element={
+            <PrivateRoute role="admin"><Analytics /></PrivateRoute>
+          } />
+          <Route path="/employee/dashboard" element={
+            <PrivateRoute role="employee"><EmployeeDashboard /></PrivateRoute>
+          } />
+          <Route path="/employee/tasks" element={
+            <PrivateRoute role="employee"><MyTasks /></PrivateRoute>
+          } />
+          <Route path="/employee/report" element={
+            <PrivateRoute role="employee"><DailyReport /></PrivateRoute>
+          } />
+          <Route path="/" element={<Navigate to="/login" />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
