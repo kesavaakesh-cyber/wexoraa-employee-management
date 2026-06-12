@@ -7,7 +7,7 @@ const EmployeeDashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [tasks, setTasks] = useState([]);
-  const [timerStatus, setTimerStatus] = useState('idle'); // idle, working, break, ended
+  const [timerStatus, setTimerStatus] = useState('idle');
   const [seconds, setSeconds] = useState(0);
   const [breakSeconds, setBreakSeconds] = useState(0);
   const [startTime, setStartTime] = useState(null);
@@ -19,7 +19,6 @@ const EmployeeDashboard = () => {
 
   useEffect(() => {
     fetchData();
-    // Check if timer was running before
     const saved = localStorage.getItem('workTimer');
     if (saved) {
       const data = JSON.parse(saved);
@@ -89,6 +88,7 @@ const EmployeeDashboard = () => {
     setSeconds(0);
     setBreakSeconds(0);
     setBreaks([]);
+    setWorkSaved(false);
   };
 
   const handleBreak = () => {
@@ -108,16 +108,20 @@ const EmployeeDashboard = () => {
     clearInterval(intervalRef.current);
     clearInterval(breakIntervalRef.current);
 
+    const now = new Date().toTimeString().split(' ')[0];
     const totalWorkSecs = seconds - breakSeconds;
-    const hoursWorked = (totalWorkSecs / 3600).toFixed(2);
 
     try {
-      await API.post('/attendance/checkin');
-    } catch (err) { }
-
-    try {
-      await API.put('/attendance/checkout');
-    } catch (err) { }
+      await API.post('/attendance/save-timer', {
+        checkIn: startTime,
+        checkOut: now,
+        workSeconds: totalWorkSecs > 0 ? totalWorkSecs : 0,
+        breakSeconds: breakSeconds,
+        breakCount: breaks.length
+      });
+    } catch (err) {
+      console.log('Save timer error:', err);
+    }
 
     localStorage.removeItem('workTimer');
     setWorkSaved(true);
@@ -168,28 +172,24 @@ const EmployeeDashboard = () => {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr', gap: '12px', marginBottom: '12px' }}>
-
-          {/* Work Timer Widget */}
           <div style={{ background: 'white', borderRadius: '10px', border: '1px solid #eee', padding: '1.25rem' }}>
             <p style={{ fontWeight: '500', margin: '0 0 1rem', fontSize: '15px' }}>Work Timer</p>
 
-            {/* Timer Display */}
             <div style={{ textAlign: 'center', padding: '1rem 0' }}>
               <div style={{
                 fontSize: '36px', fontWeight: '700', fontFamily: 'monospace',
                 color: timerStatus === 'working' ? '#2563eb' : timerStatus === 'break' ? '#ca8a04' : timerStatus === 'ended' ? '#16a34a' : '#555'
               }}>
-                {formatTime(timerStatus === 'break' ? seconds : seconds)}
+                {formatTime(seconds)}
               </div>
               <p style={{ fontSize: '12px', color: '#888', margin: '4px 0 0' }}>
                 {timerStatus === 'idle' && 'Not started'}
                 {timerStatus === 'working' && `Working • Started ${startTime}`}
-                {timerStatus === 'break' && `On break • ${formatTime(breakSeconds)}`}
+                {timerStatus === 'break' && `On break • Break time: ${formatTime(breakSeconds)}`}
                 {timerStatus === 'ended' && 'Work ended'}
               </p>
             </div>
 
-            {/* Stats */}
             {timerStatus !== 'idle' && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '1rem' }}>
                 <div style={{ background: '#eff6ff', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
@@ -203,7 +203,6 @@ const EmployeeDashboard = () => {
               </div>
             )}
 
-            {/* Buttons */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {timerStatus === 'idle' && (
                 <button onClick={handleStartWork} style={{ width: '100%', padding: '10px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
@@ -228,15 +227,14 @@ const EmployeeDashboard = () => {
               {timerStatus === 'ended' && (
                 <div style={{ padding: '10px', background: '#dcfce7', borderRadius: '8px', textAlign: 'center' }}>
                   <p style={{ fontSize: '13px', color: '#16a34a', margin: 0, fontWeight: '500' }}>✓ Work completed!</p>
-                  <p style={{ fontSize: '12px', color: '#16a34a', margin: '4px 0 0' }}>Total: {formatTime(totalWorkSecs > 0 ? totalWorkSecs : 0)}</p>
+                  <p style={{ fontSize: '12px', color: '#16a34a', margin: '4px 0 0' }}>Work: {formatTime(totalWorkSecs > 0 ? totalWorkSecs : 0)} | Break: {formatTime(breakSeconds)}</p>
                 </div>
               )}
             </div>
 
-            {/* Break history */}
             {breaks.length > 0 && (
               <div style={{ marginTop: '1rem', borderTop: '1px solid #f5f5f5', paddingTop: '10px' }}>
-                <p style={{ fontSize: '12px', color: '#888', margin: '0 0 6px' }}>Break History</p>
+                <p style={{ fontSize: '12px', color: '#888', margin: '0 0 6px' }}>Break History ({breaks.length} breaks)</p>
                 {breaks.map((b, i) => (
                   <div key={i} style={{ fontSize: '11px', color: '#555', padding: '3px 0' }}>
                     Break {i + 1}: {b.start} → {b.end}
@@ -246,7 +244,6 @@ const EmployeeDashboard = () => {
             )}
           </div>
 
-          {/* Tasks */}
           <div style={{ background: 'white', borderRadius: '10px', border: '1px solid #eee', padding: '1.25rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <p style={{ fontWeight: '500', margin: 0, fontSize: '15px' }}>My Tasks</p>
@@ -270,7 +267,6 @@ const EmployeeDashboard = () => {
           </div>
         </div>
 
-        {/* Quick Actions */}
         <div style={{ background: 'white', borderRadius: '10px', border: '1px solid #eee', padding: '1.25rem' }}>
           <p style={{ fontWeight: '500', margin: '0 0 1rem', fontSize: '15px' }}>Quick Actions</p>
           <div style={{ display: 'flex', gap: '10px' }}>

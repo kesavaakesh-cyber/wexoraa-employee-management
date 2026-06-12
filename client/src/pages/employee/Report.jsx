@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import API from '../../api/axios';
@@ -6,10 +6,30 @@ import API from '../../api/axios';
 const DailyReport = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ tasksCompleted: '', hoursWorked: '', blockers: '', tomorrowPlan: '' });
+  const [form, setForm] = useState({
+    tasksCompleted: '',
+    hoursWorked: '',
+    blockers: '',
+    tomorrowPlan: ''
+  });
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [autoFilled, setAutoFilled] = useState(false);
+
+  useEffect(() => {
+    // Timer la irunthu auto fill pannuvom
+    const saved = localStorage.getItem('workTimer');
+    if (saved) {
+      const data = JSON.parse(saved);
+      if (data.seconds > 0) {
+        const workSecs = data.seconds - (data.breakSeconds || 0);
+        const hours = (workSecs / 3600).toFixed(1);
+        setForm(prev => ({ ...prev, hoursWorked: hours }));
+        setAutoFilled(true);
+      }
+    }
+  }, []);
 
   const handleSubmit = async () => {
     if (!form.tasksCompleted || !form.hoursWorked) {
@@ -63,9 +83,15 @@ const DailyReport = () => {
           <p style={{ fontSize: '13px', color: '#888', margin: 0 }}>{new Date().toDateString()}</p>
         </div>
 
+        {autoFilled && (
+          <div style={{ padding: '10px 16px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', marginBottom: '1rem', fontSize: '13px', color: '#2563eb' }}>
+            ⏱ Hours auto-filled from your work timer!
+          </div>
+        )}
+
         {success && (
           <div style={{ padding: '12px 16px', background: '#dcfce7', border: '1px solid #86efac', borderRadius: '10px', marginBottom: '1rem', fontSize: '14px', color: '#16a34a' }}>
-            ✓ Report submitted successfully! Admin has been notified.
+            ✓ Report submitted successfully!
           </div>
         )}
 
@@ -84,8 +110,10 @@ const DailyReport = () => {
           </div>
 
           <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px', color: '#555' }}>Hours Worked *</label>
-            <input type="number" min="1" max="12" value={form.hoursWorked} onChange={(e) => setForm({ ...form, hoursWorked: e.target.value })}
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px', color: '#555' }}>
+              Hours Worked * {autoFilled && <span style={{ color: '#2563eb', fontWeight: '400' }}>(auto-filled from timer)</span>}
+            </label>
+            <input type="number" min="0" max="24" step="0.1" value={form.hoursWorked} onChange={(e) => setForm({ ...form, hoursWorked: e.target.value })}
               placeholder="8"
               style={{ width: '120px', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }} />
           </div>
