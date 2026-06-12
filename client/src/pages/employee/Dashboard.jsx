@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import API from '../../api/axios';
@@ -6,54 +6,130 @@ import API from '../../api/axios';
 const EmployeeDashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [attendance, setAttendance] = useState(null);
   const [tasks, setTasks] = useState([]);
-  const [checkedIn, setCheckedIn] = useState(false);
-  const [checkedOut, setCheckedOut] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [timerStatus, setTimerStatus] = useState('idle'); // idle, working, break, ended
+  const [seconds, setSeconds] = useState(0);
+  const [breakSeconds, setBreakSeconds] = useState(0);
+  const [startTime, setStartTime] = useState(null);
+  const [breaks, setBreaks] = useState([]);
+  const [currentBreakStart, setCurrentBreakStart] = useState(null);
+  const [workSaved, setWorkSaved] = useState(false);
+  const intervalRef = useRef(null);
+  const breakIntervalRef = useRef(null);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+    // Check if timer was running before
+    const saved = localStorage.getItem('workTimer');
+    if (saved) {
+      const data = JSON.parse(saved);
+      setTimerStatus(data.status);
+      setSeconds(data.seconds);
+      setBreakSeconds(data.breakSeconds);
+      setStartTime(data.startTime);
+      setBreaks(data.breaks || []);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (timerStatus === 'working') {
+      intervalRef.current = setInterval(() => {
+        setSeconds(s => {
+          const newS = s + 1;
+          saveToLocal(newS, breakSeconds, timerStatus);
+          return newS;
+        });
+      }, 1000);
+    } else {
+      clearInterval(intervalRef.current);
+    }
+    return () => clearInterval(intervalRef.current);
+  }, [timerStatus]);
+
+  useEffect(() => {
+    if (timerStatus === 'break') {
+      breakIntervalRef.current = setInterval(() => {
+        setBreakSeconds(b => {
+          const newB = b + 1;
+          saveToLocal(seconds, newB, timerStatus);
+          return newB;
+        });
+      }, 1000);
+    } else {
+      clearInterval(breakIntervalRef.current);
+    }
+    return () => clearInterval(breakIntervalRef.current);
+  }, [timerStatus]);
+
+  const saveToLocal = (s, b, status) => {
+    localStorage.setItem('workTimer', JSON.stringify({
+      status, seconds: s, breakSeconds: b,
+      startTime, breaks
+    }));
+  };
 
   const fetchData = async () => {
     try {
-      const [attRes, taskRes] = await Promise.all([
-        API.get('/attendance/my'),
-        API.get('/tasks/my')
-      ]);
-      const today = new Date().toISOString().split('T')[0];
-      const todayAtt = attRes.data.find(a => a.date === today);
-      if (todayAtt) {
-        setAttendance(todayAtt);
-        setCheckedIn(true);
-        if (todayAtt.checkOut) setCheckedOut(true);
-      }
+      const taskRes = await API.get('/tasks/my');
       setTasks(taskRes.data.slice(0, 4));
     } catch (err) { console.log(err); }
   };
 
-  const handleCheckIn = async () => {
-    setLoading(true);
-    try {
-      const res = await API.post('/attendance/checkin');
-      setAttendance(res.data);
-      setCheckedIn(true);
-    } catch (err) {
-      alert(err.response?.data?.message || 'Error');
-    } finally { setLoading(false); }
+  const formatTime = (secs) => {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
-  const handleCheckOut = async () => {
-    setLoading(true);
+  const handleStartWork = () => {
+    const now = new Date().toTimeString().split(' ')[0];
+    setStartTime(now);
+    setTimerStatus('working');
+    setSeconds(0);
+    setBreakSeconds(0);
+    setBreaks([]);
+  };
+
+  const handleBreak = () => {
+    const now = new Date().toTimeString().split(' ')[0];
+    setCurrentBreakStart(now);
+    setTimerStatus('break');
+  };
+
+  const handleResume = () => {
+    const now = new Date().toTimeString().split(' ')[0];
+    setBreaks(prev => [...prev, { start: currentBreakStart, end: now }]);
+    setTimerStatus('working');
+  };
+
+  const handleEndWork = async () => {
+    setTimerStatus('ended');
+    clearInterval(intervalRef.current);
+    clearInterval(breakIntervalRef.current);
+
+    const totalWorkSecs = seconds - breakSeconds;
+    const hoursWorked = (totalWorkSecs / 3600).toFixed(2);
+
     try {
-      const res = await API.put('/attendance/checkout');
-      setAttendance(res.data);
-      setCheckedOut(true);
-    } catch (err) {
-      alert(err.response?.data?.message || 'Error');
-    } finally { setLoading(false); }
+      await API.post('/attendance/checkin');
+    } catch (err) { }
+
+    try {
+      await API.put('/attendance/checkout');
+    } catch (err) { }
+
+    localStorage.removeItem('workTimer');
+    setWorkSaved(true);
   };
 
   const handleLogout = () => { logout(); navigate('/login'); };
+
+  const statusColor = (s) => ({
+    pending: { bg: '#f3f4f6', color: '#555' },
+    inprogress: { bg: '#fef9c3', color: '#ca8a04' },
+    done: { bg: '#dcfce7', color: '#16a34a' }
+  }[s] || { bg: '#f3f4f6', color: '#555' });
 
   const sidebarItems = [
     { label: 'Dashboard', path: '/employee/dashboard' },
@@ -61,11 +137,7 @@ const EmployeeDashboard = () => {
     { label: 'Daily Report', path: '/employee/report' },
   ];
 
-  const statusColor = (s) => ({
-    pending: { bg: '#f3f4f6', color: '#555' },
-    inprogress: { bg: '#fef9c3', color: '#ca8a04' },
-    done: { bg: '#dcfce7', color: '#16a34a' }
-  }[s] || { bg: '#f3f4f6', color: '#555' });
+  const totalWorkSecs = seconds - breakSeconds;
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8f9fa' }}>
@@ -96,45 +168,85 @@ const EmployeeDashboard = () => {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr', gap: '12px', marginBottom: '12px' }}>
+
+          {/* Work Timer Widget */}
           <div style={{ background: 'white', borderRadius: '10px', border: '1px solid #eee', padding: '1.25rem' }}>
-            <p style={{ fontWeight: '500', margin: '0 0 1rem', fontSize: '15px' }}>Today's Attendance</p>
-            <div style={{ textAlign: 'center', padding: '0.5rem 0' }}>
+            <p style={{ fontWeight: '500', margin: '0 0 1rem', fontSize: '15px' }}>Work Timer</p>
+
+            {/* Timer Display */}
+            <div style={{ textAlign: 'center', padding: '1rem 0' }}>
               <div style={{
-                width: '64px', height: '64px', borderRadius: '50%', margin: '0 auto 12px',
-                background: checkedIn ? '#dcfce7' : '#f3f4f6',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px'
+                fontSize: '36px', fontWeight: '700', fontFamily: 'monospace',
+                color: timerStatus === 'working' ? '#2563eb' : timerStatus === 'break' ? '#ca8a04' : timerStatus === 'ended' ? '#16a34a' : '#555'
               }}>
-                {checkedIn ? '✓' : '○'}
+                {formatTime(timerStatus === 'break' ? seconds : seconds)}
               </div>
-              <p style={{ fontWeight: '500', margin: '0 0 2px', color: checkedIn ? '#16a34a' : '#555' }}>
-                {checkedIn ? (checkedOut ? 'Checked Out' : 'Checked In') : 'Not Checked In'}
+              <p style={{ fontSize: '12px', color: '#888', margin: '4px 0 0' }}>
+                {timerStatus === 'idle' && 'Not started'}
+                {timerStatus === 'working' && `Working • Started ${startTime}`}
+                {timerStatus === 'break' && `On break • ${formatTime(breakSeconds)}`}
+                {timerStatus === 'ended' && 'Work ended'}
               </p>
-              {attendance?.checkIn && (
-                <p style={{ fontSize: '12px', color: '#888', margin: 0 }}>In: {attendance.checkIn}</p>
+            </div>
+
+            {/* Stats */}
+            {timerStatus !== 'idle' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '1rem' }}>
+                <div style={{ background: '#eff6ff', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
+                  <p style={{ fontSize: '11px', color: '#2563eb', margin: '0 0 2px' }}>Work Time</p>
+                  <p style={{ fontSize: '14px', fontWeight: '600', color: '#2563eb', margin: 0, fontFamily: 'monospace' }}>{formatTime(totalWorkSecs > 0 ? totalWorkSecs : 0)}</p>
+                </div>
+                <div style={{ background: '#fef9c3', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
+                  <p style={{ fontSize: '11px', color: '#ca8a04', margin: '0 0 2px' }}>Break Time</p>
+                  <p style={{ fontSize: '14px', fontWeight: '600', color: '#ca8a04', margin: 0, fontFamily: 'monospace' }}>{formatTime(breakSeconds)}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Buttons */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {timerStatus === 'idle' && (
+                <button onClick={handleStartWork} style={{ width: '100%', padding: '10px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
+                  ▶ Start Work
+                </button>
               )}
-              {attendance?.checkOut && (
-                <p style={{ fontSize: '12px', color: '#888', margin: 0 }}>Out: {attendance.checkOut}</p>
+              {timerStatus === 'working' && (
+                <>
+                  <button onClick={handleBreak} style={{ width: '100%', padding: '10px', background: '#fef9c3', color: '#ca8a04', border: '1px solid #fde047', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
+                    ⏸ Take Break
+                  </button>
+                  <button onClick={handleEndWork} style={{ width: '100%', padding: '10px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
+                    ⏹ End Work
+                  </button>
+                </>
+              )}
+              {timerStatus === 'break' && (
+                <button onClick={handleResume} style={{ width: '100%', padding: '10px', background: '#dcfce7', color: '#16a34a', border: '1px solid #86efac', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
+                  ▶ Resume Work
+                </button>
+              )}
+              {timerStatus === 'ended' && (
+                <div style={{ padding: '10px', background: '#dcfce7', borderRadius: '8px', textAlign: 'center' }}>
+                  <p style={{ fontSize: '13px', color: '#16a34a', margin: 0, fontWeight: '500' }}>✓ Work completed!</p>
+                  <p style={{ fontSize: '12px', color: '#16a34a', margin: '4px 0 0' }}>Total: {formatTime(totalWorkSecs > 0 ? totalWorkSecs : 0)}</p>
+                </div>
               )}
             </div>
-            <div style={{ marginTop: '1rem' }}>
-              {!checkedIn && (
-                <button onClick={handleCheckIn} disabled={loading} style={{
-                  width: '100%', padding: '9px', background: '#2563eb', color: 'white',
-                  border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px'
-                }}>Check In</button>
-              )}
-              {checkedIn && !checkedOut && (
-                <button onClick={handleCheckOut} disabled={loading} style={{
-                  width: '100%', padding: '9px', background: '#dc2626', color: 'white',
-                  border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px'
-                }}>Check Out</button>
-              )}
-              {checkedOut && (
-                <p style={{ textAlign: 'center', fontSize: '13px', color: '#16a34a', margin: 0 }}>✓ Done for today!</p>
-              )}
-            </div>
+
+            {/* Break history */}
+            {breaks.length > 0 && (
+              <div style={{ marginTop: '1rem', borderTop: '1px solid #f5f5f5', paddingTop: '10px' }}>
+                <p style={{ fontSize: '12px', color: '#888', margin: '0 0 6px' }}>Break History</p>
+                {breaks.map((b, i) => (
+                  <div key={i} style={{ fontSize: '11px', color: '#555', padding: '3px 0' }}>
+                    Break {i + 1}: {b.start} → {b.end}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
+          {/* Tasks */}
           <div style={{ background: 'white', borderRadius: '10px', border: '1px solid #eee', padding: '1.25rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <p style={{ fontWeight: '500', margin: 0, fontSize: '15px' }}>My Tasks</p>
@@ -144,35 +256,26 @@ const EmployeeDashboard = () => {
               <p style={{ color: '#888', fontSize: '13px' }}>No tasks assigned yet</p>
             ) : (
               tasks.map((task) => (
-                <div key={task._id} style={{
-                  display: 'flex', alignItems: 'center', gap: '10px',
-                  padding: '8px', background: '#f8f9fa', borderRadius: '8px', marginBottom: '6px'
-                }}>
+                <div key={task._id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', background: '#f8f9fa', borderRadius: '8px', marginBottom: '6px' }}>
                   <div style={{ flex: 1 }}>
                     <p style={{ fontSize: '13px', fontWeight: '500', margin: 0 }}>{task.title}</p>
                     <p style={{ fontSize: '11px', color: '#888', margin: 0 }}>Due: {task.dueDate || 'No date'}</p>
                   </div>
-                  <span style={{
-                    fontSize: '11px', padding: '2px 8px', borderRadius: '20px',
-                    background: statusColor(task.status).bg, color: statusColor(task.status).color
-                  }}>{task.status}</span>
+                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '20px', background: statusColor(task.status).bg, color: statusColor(task.status).color }}>
+                    {task.status === 'inprogress' ? 'In Progress' : task.status}
+                  </span>
                 </div>
               ))
             )}
           </div>
         </div>
 
+        {/* Quick Actions */}
         <div style={{ background: 'white', borderRadius: '10px', border: '1px solid #eee', padding: '1.25rem' }}>
           <p style={{ fontWeight: '500', margin: '0 0 1rem', fontSize: '15px' }}>Quick Actions</p>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button onClick={() => navigate('/employee/report')} style={{
-              padding: '10px 20px', background: '#2563eb', color: 'white',
-              border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px'
-            }}>Submit Daily Report</button>
-            <button onClick={() => navigate('/employee/tasks')} style={{
-              padding: '10px 20px', background: 'white', color: '#2563eb',
-              border: '1px solid #2563eb', borderRadius: '8px', cursor: 'pointer', fontSize: '14px'
-            }}>View My Tasks</button>
+            <button onClick={() => navigate('/employee/report')} style={{ padding: '10px 20px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}>Submit Daily Report</button>
+            <button onClick={() => navigate('/employee/tasks')} style={{ padding: '10px 20px', background: 'white', color: '#2563eb', border: '1px solid #2563eb', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}>View My Tasks</button>
           </div>
         </div>
       </div>
