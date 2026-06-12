@@ -62,6 +62,7 @@ const Dashboard = () => {
           { label: 'Attendance', path: '/admin/attendance' },
           { label: 'Tasks', path: '/admin/tasks' },
           { label: 'Reports', path: '/admin/reports' },
+    { label: 'Analytics', path: '/admin/analytics' },
         ].map((item) => (
           <div key={item.path}
             onClick={() => navigate(item.path)}

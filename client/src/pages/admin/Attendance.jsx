@@ -25,6 +25,7 @@ const Attendance = () => {
     { label: 'Attendance', path: '/admin/attendance' },
     { label: 'Tasks', path: '/admin/tasks' },
     { label: 'Reports', path: '/admin/reports' },
+    { label: 'Analytics', path: '/admin/analytics' },
   ];
 
   return (

@@ -61,6 +61,7 @@ const Analytics = () => {
     { label: 'Tasks', path: '/admin/tasks' },
     { label: 'Reports', path: '/admin/reports' },
     { label: 'Analytics', path: '/admin/analytics' },
+    { label: 'Analytics', path: '/admin/analytics' },
   ];
 
   const COLORS = ['#16a34a', '#ca8a04', '#dc2626'];
