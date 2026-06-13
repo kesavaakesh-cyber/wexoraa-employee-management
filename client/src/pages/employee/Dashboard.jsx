@@ -8,13 +8,13 @@ const EmployeeDashboard = () => {
   const navigate = useNavigate();
   const [tasks, setTasks] = useState([]);
   const [timerStatus, setTimerStatus] = useState('idle');
-  const [seconds, setSeconds] = useState(0);
+  const [workSeconds, setWorkSeconds] = useState(0);
   const [breakSeconds, setBreakSeconds] = useState(0);
   const [startTime, setStartTime] = useState(null);
   const [breaks, setBreaks] = useState([]);
   const [currentBreakStart, setCurrentBreakStart] = useState(null);
   const [workSaved, setWorkSaved] = useState(false);
-  const intervalRef = useRef(null);
+  const workIntervalRef = useRef(null);
   const breakIntervalRef = useRef(null);
 
   useEffect(() => {
@@ -23,35 +23,37 @@ const EmployeeDashboard = () => {
     if (saved) {
       const data = JSON.parse(saved);
       setTimerStatus(data.status);
-      setSeconds(data.seconds);
-      setBreakSeconds(data.breakSeconds);
+      setWorkSeconds(data.workSeconds || 0);
+      setBreakSeconds(data.breakSeconds || 0);
       setStartTime(data.startTime);
       setBreaks(data.breaks || []);
       if (data.status === 'ended') setWorkSaved(true);
     }
   }, []);
 
+  // Work timer - only runs when status is 'working'
   useEffect(() => {
     if (timerStatus === 'working') {
-      intervalRef.current = setInterval(() => {
-        setSeconds(s => {
+      workIntervalRef.current = setInterval(() => {
+        setWorkSeconds(s => {
           const newS = s + 1;
           saveToLocal(newS, breakSeconds, timerStatus);
           return newS;
         });
       }, 1000);
     } else {
-      clearInterval(intervalRef.current);
+      clearInterval(workIntervalRef.current);
     }
-    return () => clearInterval(intervalRef.current);
+    return () => clearInterval(workIntervalRef.current);
   }, [timerStatus]);
 
+  // Break timer - only runs when status is 'break'
   useEffect(() => {
     if (timerStatus === 'break') {
       breakIntervalRef.current = setInterval(() => {
         setBreakSeconds(b => {
           const newB = b + 1;
-          saveToLocal(seconds, newB, timerStatus);
+          saveToLocal(workSeconds, newB, timerStatus);
           return newB;
         });
       }, 1000);
@@ -61,10 +63,13 @@ const EmployeeDashboard = () => {
     return () => clearInterval(breakIntervalRef.current);
   }, [timerStatus]);
 
-  const saveToLocal = (s, b, status) => {
+  const saveToLocal = (ws, bs, status) => {
     localStorage.setItem('workTimer', JSON.stringify({
-      status, seconds: s, breakSeconds: b,
-      startTime, breaks
+      status,
+      workSeconds: ws,
+      breakSeconds: bs,
+      startTime,
+      breaks
     }));
   };
 
@@ -86,7 +91,7 @@ const EmployeeDashboard = () => {
     const now = new Date().toTimeString().split(' ')[0];
     setStartTime(now);
     setTimerStatus('working');
-    setSeconds(0);
+    setWorkSeconds(0);
     setBreakSeconds(0);
     setBreaks([]);
     setWorkSaved(false);
@@ -101,22 +106,21 @@ const EmployeeDashboard = () => {
 
   const handleResume = () => {
     const now = new Date().toTimeString().split(' ')[0];
-    setBreaks(prev => [...prev, { start: currentBreakStart, end: now }]);
+    const newBreaks = [...breaks, { start: currentBreakStart, end: now }];
+    setBreaks(newBreaks);
     setTimerStatus('working');
   };
 
   const handleEndWork = async () => {
     setTimerStatus('ended');
-    clearInterval(intervalRef.current);
+    clearInterval(workIntervalRef.current);
     clearInterval(breakIntervalRef.current);
 
     const now = new Date().toTimeString().split(' ')[0];
-    const totalWorkSecs = seconds - breakSeconds;
 
-    // localStorage clear pannama - Report page use pannatum
     localStorage.setItem('workTimer', JSON.stringify({
       status: 'ended',
-      seconds: seconds,
+      workSeconds: workSeconds,
       breakSeconds: breakSeconds,
       startTime: startTime,
       endTime: now,
@@ -127,7 +131,7 @@ const EmployeeDashboard = () => {
       await API.post('/attendance/save-timer', {
         checkIn: startTime,
         checkOut: now,
-        workSeconds: totalWorkSecs > 0 ? totalWorkSecs : 0,
+        workSeconds: workSeconds,
         breakSeconds: breakSeconds,
         breakCount: breaks.length
       });
@@ -152,14 +156,12 @@ const EmployeeDashboard = () => {
     { label: 'Daily Report', path: '/employee/report' },
   ];
 
-  const totalWorkSecs = seconds - breakSeconds;
-
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8f9fa' }}>
       <div style={{ width: '220px', background: 'white', borderRight: '1px solid #eee', padding: '1rem 0', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '0 1rem 1rem', borderBottom: '1px solid #eee', marginBottom: '0.5rem' }}>
           <img src="/logo.png" alt="Wexoraa" style={{ height: '32px', objectFit: 'contain' }} />
-          <p style={{ fontSize: '11px', color: '#888', margin: 0 }}>Employee</p>
+          <p style={{ fontSize: '11px', color: '#888', margin: '4px 0 0' }}>Employee</p>
         </div>
         {sidebarItems.map((item) => (
           <div key={item.path} onClick={() => navigate(item.path)} style={{
@@ -187,33 +189,53 @@ const EmployeeDashboard = () => {
             <p style={{ fontWeight: '500', margin: '0 0 1rem', fontSize: '15px' }}>Work Timer</p>
 
             <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-              <div style={{
-                fontSize: '36px', fontWeight: '700', fontFamily: 'monospace',
-                color: timerStatus === 'working' ? '#2563eb' : timerStatus === 'break' ? '#ca8a04' : timerStatus === 'ended' ? '#16a34a' : '#555'
-              }}>
-                {formatTime(seconds)}
+              {/* Work Timer Display */}
+              <div style={{ marginBottom: '8px' }}>
+                <p style={{ fontSize: '11px', color: '#888', margin: '0 0 2px' }}>Work Time</p>
+                <div style={{
+                  fontSize: '32px', fontWeight: '700', fontFamily: 'monospace',
+                  color: timerStatus === 'working' ? '#16a34a' : timerStatus === 'ended' ? '#16a34a' : '#555'
+                }}>
+                  {formatTime(workSeconds)}
+                </div>
               </div>
-              <p style={{ fontSize: '12px', color: '#888', margin: '4px 0 0' }}>
-                {timerStatus === 'idle' && 'Not started'}
-                {timerStatus === 'working' && `Working • Started ${startTime}`}
-                {timerStatus === 'break' && `On break • Break time: ${formatTime(breakSeconds)}`}
-                {timerStatus === 'ended' && `Work ended • Started ${startTime}`}
+
+              {/* Break Timer Display */}
+              {timerStatus !== 'idle' && (
+                <div>
+                  <p style={{ fontSize: '11px', color: '#888', margin: '0 0 2px' }}>Break Time</p>
+                  <div style={{
+                    fontSize: '20px', fontWeight: '600', fontFamily: 'monospace',
+                    color: timerStatus === 'break' ? '#ca8a04' : '#aaa'
+                  }}>
+                    {formatTime(breakSeconds)}
+                  </div>
+                </div>
+              )}
+
+              <p style={{ fontSize: '12px', color: '#888', margin: '8px 0 0' }}>
+                {timerStatus === 'idle' && 'Click Start Work to begin'}
+                {timerStatus === 'working' && `🟢 Working • Started ${startTime}`}
+                {timerStatus === 'break' && `🟡 On Break`}
+                {timerStatus === 'ended' && `✅ Work ended`}
               </p>
             </div>
 
+            {/* Stats */}
             {timerStatus !== 'idle' && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '1rem' }}>
-                <div style={{ background: '#eff6ff', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
-                  <p style={{ fontSize: '11px', color: '#16a34a', margin: '0 0 2px' }}>Work Time</p>
-                  <p style={{ fontSize: '14px', fontWeight: '600', color: '#16a34a', margin: 0, fontFamily: 'monospace' }}>{formatTime(totalWorkSecs > 0 ? totalWorkSecs : 0)}</p>
+                <div style={{ background: '#f0fdf4', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
+                  <p style={{ fontSize: '11px', color: '#16a34a', margin: '0 0 2px' }}>Total Work</p>
+                  <p style={{ fontSize: '13px', fontWeight: '600', color: '#16a34a', margin: 0 }}>{Math.floor(workSeconds / 60)} min</p>
                 </div>
                 <div style={{ background: '#fef9c3', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
-                  <p style={{ fontSize: '11px', color: '#ca8a04', margin: '0 0 2px' }}>Break Time</p>
-                  <p style={{ fontSize: '14px', fontWeight: '600', color: '#ca8a04', margin: 0, fontFamily: 'monospace' }}>{formatTime(breakSeconds)}</p>
+                  <p style={{ fontSize: '11px', color: '#ca8a04', margin: '0 0 2px' }}>Total Break</p>
+                  <p style={{ fontSize: '13px', fontWeight: '600', color: '#ca8a04', margin: 0 }}>{Math.floor(breakSeconds / 60)} min ({breaks.length} times)</p>
                 </div>
               </div>
             )}
 
+            {/* Buttons */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {timerStatus === 'idle' && (
                 <button onClick={handleStartWork} style={{ width: '100%', padding: '10px', background: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
@@ -231,15 +253,17 @@ const EmployeeDashboard = () => {
                 </>
               )}
               {timerStatus === 'break' && (
-                <button onClick={handleResume} style={{ width: '100%', padding: '10px', background: '#dcfce7', color: '#16a34a', border: '1px solid #86efac', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
+                <button onClick={handleResume} style={{ width: '100%', padding: '10px', background: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
                   ▶ Resume Work
                 </button>
               )}
               {timerStatus === 'ended' && (
                 <div>
-                  <div style={{ padding: '10px', background: '#dcfce7', borderRadius: '8px', textAlign: 'center', marginBottom: '8px' }}>
+                  <div style={{ padding: '10px', background: '#f0fdf4', borderRadius: '8px', textAlign: 'center', marginBottom: '8px' }}>
                     <p style={{ fontSize: '13px', color: '#16a34a', margin: 0, fontWeight: '500' }}>✓ Work completed!</p>
-                    <p style={{ fontSize: '12px', color: '#16a34a', margin: '4px 0 0' }}>Work: {formatTime(totalWorkSecs > 0 ? totalWorkSecs : 0)} | Break: {formatTime(breakSeconds)}</p>
+                    <p style={{ fontSize: '12px', color: '#16a34a', margin: '4px 0 0' }}>
+                      Work: {Math.floor(workSeconds / 60)} min | Break: {Math.floor(breakSeconds / 60)} min
+                    </p>
                   </div>
                   <button onClick={() => navigate('/employee/report')} style={{ width: '100%', padding: '9px', background: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>
                     📝 Submit Daily Report
@@ -248,6 +272,7 @@ const EmployeeDashboard = () => {
               )}
             </div>
 
+            {/* Break history */}
             {breaks.length > 0 && (
               <div style={{ marginTop: '1rem', borderTop: '1px solid #f5f5f5', paddingTop: '10px' }}>
                 <p style={{ fontSize: '12px', color: '#888', margin: '0 0 6px' }}>Break History ({breaks.length} breaks)</p>

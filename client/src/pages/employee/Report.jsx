@@ -20,13 +20,12 @@ const DailyReport = () => {
 
   useEffect(() => {
     const saved = localStorage.getItem('workTimer');
-    console.log('Timer data from localStorage:', saved);
     if (saved) {
       const data = JSON.parse(saved);
       if (data.seconds > 0) {
         const workSecs = data.seconds - (data.breakSeconds || 0);
-        const hours = (workSecs / 3600).toFixed(1);
-        setForm(prev => ({ ...prev, hoursWorked: hours }));
+        const minutes = Math.round(workSecs / 60);
+        setForm(prev => ({ ...prev, hoursWorked: minutes }));
         setAutoFilled(true);
         setTimerSummary({
           startTime: data.startTime,
@@ -48,7 +47,7 @@ const DailyReport = () => {
 
   const handleSubmit = async () => {
     if (!form.tasksCompleted || !form.hoursWorked) {
-      setError('Tasks completed and hours worked are required!');
+      setError('Tasks completed and minutes worked are required!');
       return;
     }
     setLoading(true);
@@ -78,7 +77,7 @@ const DailyReport = () => {
       <div style={{ width: '220px', background: 'white', borderRight: '1px solid #eee', padding: '1rem 0', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '0 1rem 1rem', borderBottom: '1px solid #eee', marginBottom: '0.5rem' }}>
           <img src="/logo.png" alt="Wexoraa" style={{ height: '32px', objectFit: 'contain' }} />
-          <p style={{ fontSize: '11px', color: '#888', margin: 0 }}>Employee</p>
+          <p style={{ fontSize: '11px', color: '#888', margin: '4px 0 0' }}>Employee</p>
         </div>
         {sidebarItems.map((item) => (
           <div key={item.path} onClick={() => navigate(item.path)} style={{
@@ -101,9 +100,8 @@ const DailyReport = () => {
           <p style={{ fontSize: '13px', color: '#888', margin: 0 }}>{new Date().toDateString()}</p>
         </div>
 
-        {/* Timer Summary */}
         {timerSummary && (
-          <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
+          <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
             <p style={{ fontSize: '13px', fontWeight: '500', color: '#16a34a', margin: '0 0 8px' }}>⏱ Today's Work Summary (Auto-filled)</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
               <div style={{ textAlign: 'center' }}>
@@ -148,12 +146,17 @@ const DailyReport = () => {
 
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px', color: '#555' }}>
-              Hours Worked * {autoFilled && <span style={{ color: '#16a34a', fontWeight: '400', fontSize: '12px' }}>(auto-filled from timer)</span>}
+              Minutes Worked * {autoFilled && <span style={{ color: '#16a34a', fontWeight: '400', fontSize: '12px' }}>(auto-filled from timer)</span>}
             </label>
-            <input type="number" min="0" max="24" step="0.1" value={form.hoursWorked}
-              onChange={(e) => setForm({ ...form, hoursWorked: e.target.value })}
-              placeholder="8"
-              style={{ width: '120px', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }} />
+            <input type="number" value={form.hoursWorked}
+              readOnly
+              placeholder="Auto-filled from timer"
+              style={{ width: '180px', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box', background: '#f8f9fa', cursor: 'not-allowed' }} />
+            {form.hoursWorked && (
+              <span style={{ marginLeft: '10px', fontSize: '12px', color: '#888' }}>
+                = {(form.hoursWorked / 60).toFixed(1)} hours
+              </span>
+            )}
           </div>
 
           <div style={{ marginBottom: '1rem' }}>
@@ -171,7 +174,7 @@ const DailyReport = () => {
           </div>
 
           <button onClick={handleSubmit} disabled={loading} style={{
-            padding: '10px 24px', background: loading ? '#aaa' : '#2563eb', color: 'white',
+            padding: '10px 24px', background: loading ? '#aaa' : '#16a34a', color: 'white',
             border: 'none', borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: '500'
           }}>
             {loading ? 'Submitting...' : 'Submit Report'}
