@@ -22,8 +22,8 @@ const DailyReport = () => {
     const saved = localStorage.getItem('workTimer');
     if (saved) {
       const data = JSON.parse(saved);
-      if (data.seconds > 0) {
-        const workSecs = data.seconds - (data.breakSeconds || 0);
+      if (data.workSeconds > 0) {
+        const workSecs = data.workSeconds;
         const minutes = Math.round(workSecs / 60);
         setForm(prev => ({ ...prev, hoursWorked: minutes }));
         setAutoFilled(true);
