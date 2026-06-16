@@ -14,8 +14,12 @@ const EmployeeDashboard = () => {
   const [breaks, setBreaks] = useState([]);
   const [currentBreakStart, setCurrentBreakStart] = useState(null);
   const [workSaved, setWorkSaved] = useState(false);
-  const workIntervalRef = useRef(null);
-  const breakIntervalRef = useRef(null);
+  const tickRef = useRef(null);
+
+  // Reference timestamps - epoch ms, tab inactive aanalum correct a calculate pannum
+  const workAccumulatedRef = useRef(0); // seconds accumulated before current segment
+  const breakAccumulatedRef = useRef(0);
+  const segmentStartRef = useRef(null); // epoch ms when current working/break segment started
 
   useEffect(() => {
     fetchData();
@@ -23,44 +27,57 @@ const EmployeeDashboard = () => {
     if (saved) {
       const data = JSON.parse(saved);
       setTimerStatus(data.status);
-      setWorkSeconds(data.workSeconds || 0);
-      setBreakSeconds(data.breakSeconds || 0);
       setStartTime(data.startTime);
       setBreaks(data.breaks || []);
+      workAccumulatedRef.current = data.workSeconds || 0;
+      breakAccumulatedRef.current = data.breakSeconds || 0;
+      segmentStartRef.current = data.segmentStart || null;
+      setWorkSeconds(data.workSeconds || 0);
+      setBreakSeconds(data.breakSeconds || 0);
       if (data.status === 'ended') setWorkSaved(true);
     }
   }, []);
 
-  // Work timer - only runs when status is 'working'
+  // Single ticking interval - recalculates from epoch time every second, works even if tab was inactive
   useEffect(() => {
-    if (timerStatus === 'working') {
-      workIntervalRef.current = setInterval(() => {
-        setWorkSeconds(s => {
-          const newS = s + 1;
-          saveToLocal(newS, breakSeconds, timerStatus);
-          return newS;
-        });
+    if (timerStatus === 'working' || timerStatus === 'break') {
+      tickRef.current = setInterval(() => {
+        const now = Date.now();
+        const elapsedSinceSegment = segmentStartRef.current
+          ? Math.floor((now - segmentStartRef.current) / 1000)
+          : 0;
+
+        if (timerStatus === 'working') {
+          const total = workAccumulatedRef.current + elapsedSinceSegment;
+          setWorkSeconds(total);
+          saveToLocal(total, breakAccumulatedRef.current, timerStatus);
+        } else {
+          const total = breakAccumulatedRef.current + elapsedSinceSegment;
+          setBreakSeconds(total);
+          saveToLocal(workAccumulatedRef.current, total, timerStatus);
+        }
       }, 1000);
     } else {
-      clearInterval(workIntervalRef.current);
+      clearInterval(tickRef.current);
     }
-    return () => clearInterval(workIntervalRef.current);
+    return () => clearInterval(tickRef.current);
   }, [timerStatus]);
 
-  // Break timer - only runs when status is 'break'
+  // Recalculate immediately when tab becomes visible again (catches up missed time instantly)
   useEffect(() => {
-    if (timerStatus === 'break') {
-      breakIntervalRef.current = setInterval(() => {
-        setBreakSeconds(b => {
-          const newB = b + 1;
-          saveToLocal(workSeconds, newB, timerStatus);
-          return newB;
-        });
-      }, 1000);
-    } else {
-      clearInterval(breakIntervalRef.current);
-    }
-    return () => clearInterval(breakIntervalRef.current);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && segmentStartRef.current) {
+        const now = Date.now();
+        const elapsedSinceSegment = Math.floor((now - segmentStartRef.current) / 1000);
+        if (timerStatus === 'working') {
+          setWorkSeconds(workAccumulatedRef.current + elapsedSinceSegment);
+        } else if (timerStatus === 'break') {
+          setBreakSeconds(breakAccumulatedRef.current + elapsedSinceSegment);
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [timerStatus]);
 
   const saveToLocal = (ws, bs, status) => {
@@ -69,7 +86,8 @@ const EmployeeDashboard = () => {
       workSeconds: ws,
       breakSeconds: bs,
       startTime,
-      breaks
+      breaks,
+      segmentStart: segmentStartRef.current
     }));
   };
 
@@ -95,33 +113,58 @@ const EmployeeDashboard = () => {
     setBreakSeconds(0);
     setBreaks([]);
     setWorkSaved(false);
-    localStorage.removeItem('workTimer');
+    workAccumulatedRef.current = 0;
+    breakAccumulatedRef.current = 0;
+    segmentStartRef.current = Date.now();
+    localStorage.setItem('workTimer', JSON.stringify({
+      status: 'working', workSeconds: 0, breakSeconds: 0,
+      startTime: now, breaks: [], segmentStart: Date.now()
+    }));
   };
 
   const handleBreak = () => {
     const now = new Date().toTimeString().split(' ')[0];
+    // Freeze current work total into accumulated, start break segment
+    const elapsed = segmentStartRef.current ? Math.floor((Date.now() - segmentStartRef.current) / 1000) : 0;
+    workAccumulatedRef.current = workAccumulatedRef.current + elapsed;
+    setWorkSeconds(workAccumulatedRef.current);
+    segmentStartRef.current = Date.now();
     setCurrentBreakStart(now);
     setTimerStatus('break');
+    saveToLocal(workAccumulatedRef.current, breakAccumulatedRef.current, 'break');
   };
 
   const handleResume = () => {
     const now = new Date().toTimeString().split(' ')[0];
     const newBreaks = [...breaks, { start: currentBreakStart, end: now }];
     setBreaks(newBreaks);
+    // Freeze current break total into accumulated, start work segment
+    const elapsed = segmentStartRef.current ? Math.floor((Date.now() - segmentStartRef.current) / 1000) : 0;
+    breakAccumulatedRef.current = breakAccumulatedRef.current + elapsed;
+    setBreakSeconds(breakAccumulatedRef.current);
+    segmentStartRef.current = Date.now();
     setTimerStatus('working');
+    saveToLocal(workAccumulatedRef.current, breakAccumulatedRef.current, 'working');
   };
 
   const handleEndWork = async () => {
+    const elapsed = segmentStartRef.current ? Math.floor((Date.now() - segmentStartRef.current) / 1000) : 0;
+    let finalWork = workAccumulatedRef.current;
+    let finalBreak = breakAccumulatedRef.current;
+    if (timerStatus === 'working') finalWork += elapsed;
+    if (timerStatus === 'break') finalBreak += elapsed;
+
+    setWorkSeconds(finalWork);
+    setBreakSeconds(finalBreak);
     setTimerStatus('ended');
-    clearInterval(workIntervalRef.current);
-    clearInterval(breakIntervalRef.current);
+    clearInterval(tickRef.current);
 
     const now = new Date().toTimeString().split(' ')[0];
 
     localStorage.setItem('workTimer', JSON.stringify({
       status: 'ended',
-      workSeconds: workSeconds,
-      breakSeconds: breakSeconds,
+      workSeconds: finalWork,
+      breakSeconds: finalBreak,
       startTime: startTime,
       endTime: now,
       breaks: breaks
@@ -131,8 +174,8 @@ const EmployeeDashboard = () => {
       await API.post('/attendance/save-timer', {
         checkIn: startTime,
         checkOut: now,
-        workSeconds: workSeconds,
-        breakSeconds: breakSeconds,
+        workSeconds: finalWork,
+        breakSeconds: finalBreak,
         breakCount: breaks.length
       });
     } catch (err) {
@@ -189,7 +232,6 @@ const EmployeeDashboard = () => {
             <p style={{ fontWeight: '500', margin: '0 0 1rem', fontSize: '15px' }}>Work Timer</p>
 
             <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-              {/* Work Timer Display */}
               <div style={{ marginBottom: '8px' }}>
                 <p style={{ fontSize: '11px', color: '#888', margin: '0 0 2px' }}>Work Time</p>
                 <div style={{
@@ -200,7 +242,6 @@ const EmployeeDashboard = () => {
                 </div>
               </div>
 
-              {/* Break Timer Display */}
               {timerStatus !== 'idle' && (
                 <div>
                   <p style={{ fontSize: '11px', color: '#888', margin: '0 0 2px' }}>Break Time</p>
@@ -221,7 +262,6 @@ const EmployeeDashboard = () => {
               </p>
             </div>
 
-            {/* Stats */}
             {timerStatus !== 'idle' && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '1rem' }}>
                 <div style={{ background: '#f0fdf4', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
@@ -235,7 +275,6 @@ const EmployeeDashboard = () => {
               </div>
             )}
 
-            {/* Buttons */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {timerStatus === 'idle' && (
                 <button onClick={handleStartWork} style={{ width: '100%', padding: '10px', background: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
@@ -272,7 +311,6 @@ const EmployeeDashboard = () => {
               )}
             </div>
 
-            {/* Break history */}
             {breaks.length > 0 && (
               <div style={{ marginTop: '1rem', borderTop: '1px solid #f5f5f5', paddingTop: '10px' }}>
                 <p style={{ fontSize: '12px', color: '#888', margin: '0 0 6px' }}>Break History ({breaks.length} breaks)</p>
